@@ -117,7 +117,7 @@ export async function unprotectVaultKey(
     "raw",
     raw,
     { name: "AES-GCM", length: 256 },
-    false,
+    true,
     ["encrypt", "decrypt"],
   );
 }
@@ -160,3 +160,12 @@ export async function unlockVaultKey(
   const vaultKey = await unprotectVaultKey(protectedVaultKey, masterKey);
   return { vaultKey, authHash };
 }
+
+export function generateRecoveryCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(20));
+  let out = "";
+  for (const b of bytes) out += alphabet[b % alphabet.length];
+  return (out.match(/.{1,4}/g) ?? [out]).join("-");
+}
+

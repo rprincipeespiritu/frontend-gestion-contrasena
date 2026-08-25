@@ -20,6 +20,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [useRecovery, setUseRecovery] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -28,23 +29,41 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const pre = await api<{ kdfSalt: string; kdfIterations: number }>("/api/auth/prelogin", {
+      const pre = await api<{
+        kdfSalt: string;
+        kdfIterations: number;
+        hasRecovery?: boolean;
+        recoverySalt?: string | null;
+        recoveryIterations?: number | null;
+      }>("/api/auth/prelogin", {
         method: "POST",
         body: JSON.stringify({ email }),
       });
-      const material = await deriveMasterMaterial(password, pre.kdfSalt, pre.kdfIterations);
+      const salt = useRecovery ? pre.recoverySalt : pre.kdfSalt;
+      const iterations = useRecovery ? pre.recoveryIterations : pre.kdfIterations;
+      if (!salt || !iterations) {
+        throw new Error("missing-kdf");
+      }
+      const material = await deriveMasterMaterial(password, salt, iterations);
       const authHash = await authHashFromMaterial(material);
-      const payload = await api<UnlockPayload>("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, authHash }),
-      });
+      const payload = await api<UnlockPayload>(
+        useRecovery ? "/api/auth/login-recovery" : "/api/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify({ email, authHash }),
+        },
+      );
       const masterKey = await masterKeyFromMaterial(material);
       const vaultKey = await unprotectVaultKey(payload.protectedVaultKey, masterKey);
       rememberVaultKey(vaultKey);
       router.push("/vault");
       router.refresh();
     } catch {
-      setError("No se pudo iniciar sesión. Revisa el email y la contraseña maestra.");
+      setError(
+        useRecovery
+          ? "No se pudo entrar con el código de recuperación."
+          : "No se pudo iniciar sesión. Revisa el email y la contraseña maestra.",
+      );
     } finally {
       setBusy(false);
     }
@@ -65,21 +84,30 @@ export default function LoginPage() {
         />
       </label>
       <label className="block text-sm">
-        Contraseña maestra
+        {useRecovery ? "Código de recuperación" : "Contraseña maestra"}
         <input
           className={field}
-          type="password"
+          type={useRecovery ? "text" : "password"}
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
+          autoComplete={useRecovery ? "off" : "current-password"}
         />
+      </label>
+      <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
+        <input
+          type="checkbox"
+          checked={useRecovery}
+          onChange={(e) => setUseRecovery(e.target.checked)}
+          className="accent-[var(--accent)]"
+        />
+        Usar código de recuperación
       </label>
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-60"
+        className="w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-semibold text-white disabled:opacity-60"
       >
         {busy ? "Desbloqueando bóveda…" : "Entrar"}
       </button>

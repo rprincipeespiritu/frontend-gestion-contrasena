@@ -9,7 +9,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { api } from "@/lib/api";
+import { api, setToken } from "@/lib/api";
+import { getLockMinutes, lockMs } from "@/lib/autolock";
 import { decryptJson, encryptJson } from "@/lib/crypto";
 import type {
   EncryptedFolder,
@@ -22,19 +23,23 @@ import type {
 } from "@/lib/types";
 import { isItemType } from "@/lib/types";
 
-const LOCK_MS = 5 * 60 * 1000;
-
 type VaultContextValue = {
   email: string;
+  avatarUrl: string | null;
+  setAvatarUrl: (url: string | null) => void;
   locked: boolean;
   busy: boolean;
   error: string | null;
   items: VaultItemDecrypted[];
+  trashItems: VaultItemDecrypted[];
   folders: FolderDecrypted[];
+  search: string;
+  setSearch: (value: string) => void;
   unlockWithKey: (key: CryptoKey) => Promise<void>;
   unlockWithPassword: (password: string) => Promise<void>;
   lock: () => void;
   logout: () => Promise<void>;
+  getVaultKey: () => CryptoKey | null;
   createItem: (input: {
     type: ItemType;
     folderId: string | null;
@@ -50,10 +55,12 @@ type VaultContextValue = {
       data?: ItemData;
     },
   ) => Promise<void>;
-  deleteItem: (id: string) => Promise<void>;
+  trashItem: (id: string) => Promise<void>;
+  restoreItem: (id: string) => Promise<void>;
+  destroyItem: (id: string) => Promise<void>;
+  touchItem: (id: string) => Promise<void>;
   createFolder: (name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
-  touch: () => void;
 };
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -64,20 +71,26 @@ export function rememberVaultKey(key: CryptoKey | null) {
   memoryKey = key;
 }
 
+function toDecrypted(item: EncryptedItem, data: ItemData): VaultItemDecrypted {
+  return {
+    id: item.id,
+    type: item.type,
+    favorite: item.favorite,
+    folderId: item.folderId,
+    data,
+    lastUsedAt: item.lastUsedAt,
+    deletedAt: item.deletedAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
 async function decryptItems(items: EncryptedItem[], key: CryptoKey) {
   const result: VaultItemDecrypted[] = [];
   for (const item of items) {
     if (!isItemType(item.type)) continue;
     try {
       const data = await decryptJson<ItemData>(item.cipherBlob, key);
-      result.push({
-        id: item.id,
-        type: item.type,
-        favorite: item.favorite,
-        folderId: item.folderId,
-        data,
-        updatedAt: item.updatedAt,
-      });
+      result.push(toDecrypted(item, data));
     } catch {
       // Skip items that cannot be decrypted with the current key.
     }
@@ -100,28 +113,37 @@ async function decryptFolders(folders: EncryptedFolder[], key: CryptoKey) {
 
 export function VaultProvider({
   email,
+  initialAvatarUrl = null,
   children,
 }: {
   email: string;
+  initialAvatarUrl?: string | null;
   children: React.ReactNode;
 }) {
   const keyRef = useRef<CryptoKey | null>(memoryKey);
   const [locked, setLocked] = useState(!memoryKey);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
   const [items, setItems] = useState<VaultItemDecrypted[]>([]);
+  const [trashItems, setTrashItems] = useState<VaultItemDecrypted[]>([]);
   const [folders, setFolders] = useState<FolderDecrypted[]>([]);
+  const [search, setSearch] = useState("");
+  const [lockVersion, setLockVersion] = useState(0);
 
   const loadVault = useCallback(async (key: CryptoKey) => {
-    const [itemRes, folderRes] = await Promise.all([
+    const [itemRes, trashRes, folderRes] = await Promise.all([
       api<{ items: EncryptedItem[] }>("/api/items"),
+      api<{ items: EncryptedItem[] }>("/api/items?trash=1"),
       api<{ folders: EncryptedFolder[] }>("/api/folders"),
     ]);
-    const [nextItems, nextFolders] = await Promise.all([
+    const [nextItems, nextTrash, nextFolders] = await Promise.all([
       decryptItems(itemRes.items, key),
+      decryptItems(trashRes.items, key),
       decryptFolders(folderRes.folders, key),
     ]);
     setItems(nextItems);
+    setTrashItems(nextTrash);
     setFolders(nextFolders);
   }, []);
 
@@ -129,12 +151,9 @@ export function VaultProvider({
     keyRef.current = null;
     rememberVaultKey(null);
     setItems([]);
+    setTrashItems([]);
     setFolders([]);
     setLocked(true);
-  }, []);
-
-  const touch = useCallback(() => {
-    if (!keyRef.current) return;
   }, []);
 
   const unlockWithKey = useCallback(
@@ -175,10 +194,16 @@ export function VaultProvider({
   );
 
   const logout = useCallback(async () => {
-    await api("/api/auth/logout", { method: "POST" });
-    lock();
-    window.location.href = "/login";
+    try {
+      await api("/api/auth/logout", { method: "POST" });
+    } finally {
+      setToken(null);
+      lock();
+      window.location.href = "/login";
+    }
   }, [lock]);
+
+  const getVaultKey = useCallback(() => keyRef.current, []);
 
   const createItem = useCallback(
     async (input: {
@@ -236,9 +261,43 @@ export function VaultProvider({
     [],
   );
 
-  const deleteItem = useCallback(async (id: string) => {
-    await api(`/api/items/${id}`, { method: "DELETE" });
+  const trashItem = useCallback(async (id: string) => {
+    const res = await api<{ item: EncryptedItem }>(`/api/items/${id}`, { method: "DELETE" });
+    setItems((prev) => {
+      const found = prev.find((item) => item.id === id);
+      if (found && res.item) {
+        setTrashItems((trash) => [{ ...found, deletedAt: res.item.deletedAt }, ...trash]);
+      }
+      return prev.filter((item) => item.id !== id);
+    });
+  }, []);
+
+  const restoreItem = useCallback(async (id: string) => {
+    const key = keyRef.current;
+    if (!key) throw new Error("Bóveda bloqueada");
+    const res = await api<{ item: EncryptedItem }>(`/api/items/${id}/restore`, { method: "POST" });
+    const [decrypted] = await decryptItems([res.item], key);
+    setTrashItems((prev) => prev.filter((item) => item.id !== id));
+    if (decrypted) setItems((prev) => [decrypted, ...prev]);
+  }, []);
+
+  const destroyItem = useCallback(async (id: string) => {
+    await api(`/api/items/${id}?permanent=1`, { method: "DELETE" });
+    setTrashItems((prev) => prev.filter((item) => item.id !== id));
     setItems((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  const touchItem = useCallback(async (id: string) => {
+    const key = keyRef.current;
+    if (!key) return;
+    const res = await api<{ item: EncryptedItem }>(`/api/items/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ touch: true }),
+    });
+    const [decrypted] = await decryptItems([res.item], key);
+    if (decrypted) {
+      setItems((prev) => prev.map((item) => (item.id === id ? decrypted : item)));
+    }
   }, []);
 
   const createFolder = useCallback(async (name: string) => {
@@ -262,17 +321,17 @@ export function VaultProvider({
   }, []);
 
   useEffect(() => {
-    if (memoryKey) {
-      void unlockWithKey(memoryKey);
-    }
+    if (memoryKey) void unlockWithKey(memoryKey);
   }, [unlockWithKey]);
 
   useEffect(() => {
     if (locked) return;
-    let timer = window.setTimeout(lock, LOCK_MS);
+    const ms = lockMs();
+    if (ms <= 0) return;
+    let timer = window.setTimeout(lock, ms);
     const reset = () => {
       window.clearTimeout(timer);
-      timer = window.setTimeout(lock, LOCK_MS);
+      timer = window.setTimeout(lock, lockMs() || ms);
     };
     const events = ["mousemove", "keydown", "click", "scroll", "touchstart"] as const;
     events.forEach((event) => window.addEventListener(event, reset));
@@ -280,44 +339,64 @@ export function VaultProvider({
       window.clearTimeout(timer);
       events.forEach((event) => window.removeEventListener(event, reset));
     };
-  }, [locked, lock]);
+  }, [locked, lock, lockVersion]);
+
+  useEffect(() => {
+    const onStorage = () => setLockVersion((v) => v + 1);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const value = useMemo(
     () => ({
       email,
+      avatarUrl,
+      setAvatarUrl,
       locked,
       busy,
       error,
       items,
+      trashItems,
       folders,
+      search,
+      setSearch,
       unlockWithKey,
       unlockWithPassword,
       lock,
       logout,
+      getVaultKey,
       createItem,
       updateItem,
-      deleteItem,
+      trashItem,
+      restoreItem,
+      destroyItem,
+      touchItem,
       createFolder,
       deleteFolder,
-      touch,
     }),
     [
       email,
+      avatarUrl,
       locked,
       busy,
       error,
       items,
+      trashItems,
       folders,
+      search,
       unlockWithKey,
       unlockWithPassword,
       lock,
       logout,
+      getVaultKey,
       createItem,
       updateItem,
-      deleteItem,
+      trashItem,
+      restoreItem,
+      destroyItem,
+      touchItem,
       createFolder,
       deleteFolder,
-      touch,
     ],
   );
 

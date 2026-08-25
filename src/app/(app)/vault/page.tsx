@@ -1,12 +1,15 @@
 "use client";
 
+import { Suspense } from "react";
 import { LockGate } from "@/components/lock-gate";
-import { VaultShell } from "@/components/vault-shell";
+import { VaultHome } from "@/components/vault-home";
 
 export default function VaultPage() {
   return (
     <LockGate>
-      <VaultShell />
+      <Suspense fallback={<div className="p-6 text-sm text-[var(--muted)]">Cargando…</div>}>
+        <VaultHome />
+      </Suspense>
     </LockGate>
   );
 }

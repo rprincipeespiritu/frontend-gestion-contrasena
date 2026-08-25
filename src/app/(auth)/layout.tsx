@@ -1,14 +1,4 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
-
-export default async function AuthLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const session = await getSession();
-  if (session) redirect("/vault");
-
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-full flex-1 items-center justify-center p-6">
       <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 shadow-2xl">

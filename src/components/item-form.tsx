@@ -8,9 +8,12 @@ import { useVault } from "@/components/vault-provider";
 import {
   emptyData,
   type CardData,
+  type ContactData,
+  type DocumentData,
   type ItemType,
   type LoginData,
   type NoteData,
+  type PasskeyData,
   type VaultItemDecrypted,
 } from "@/lib/types";
 
@@ -20,16 +23,26 @@ const field =
 export function ItemForm({
   item,
   initialType = "login",
+  initialFolderId = null,
+  compact = false,
+  onSaved,
+  onCancel,
+  onDeleted,
 }: {
   item?: VaultItemDecrypted;
   initialType?: ItemType;
+  initialFolderId?: string | null;
+  compact?: boolean;
+  onSaved?: (id: string) => void;
+  onCancel?: () => void;
+  onDeleted?: () => void;
 }) {
   const router = useRouter();
-  const { folders, createItem, updateItem, deleteItem } = useVault();
+  const { folders, createItem, updateItem, trashItem } = useVault();
   const resolvedType = item?.type ?? initialType;
   const [type, setType] = useState<ItemType>(resolvedType);
   const [favorite, setFavorite] = useState(item?.favorite ?? false);
-  const [folderId, setFolderId] = useState<string>(item?.folderId ?? "");
+  const [folderId, setFolderId] = useState<string>(item?.folderId ?? initialFolderId ?? "");
   const [data, setData] = useState(() => item?.data ?? emptyData(resolvedType));
   const [showGenerator, setShowGenerator] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +52,10 @@ export function ItemForm({
     if (item) return "Editar ítem";
     if (type === "note") return "Nueva nota";
     if (type === "card") return "Nueva tarjeta";
-    return "Nuevo inicio de sesión";
+    if (type === "passkey") return "Nueva passkey";
+    if (type === "contact") return "Nuevo contacto";
+    if (type === "document") return "Nuevo documento";
+    return "Nueva contraseña";
   }, [item, type]);
 
   function changeType(next: ItemType) {
@@ -60,15 +76,17 @@ export function ItemForm({
           folderId: folderId || null,
           data,
         });
-        router.push("/vault");
+        if (onSaved) onSaved(item.id);
+        else router.push("/vault");
       } else {
-        await createItem({
+        const id = await createItem({
           type,
           favorite,
           folderId: folderId || null,
           data,
         });
-        router.push("/vault");
+        if (onSaved) onSaved(id);
+        else router.push("/vault");
       }
     } catch {
       setError("No se pudo guardar el ítem.");
@@ -77,17 +95,23 @@ export function ItemForm({
     }
   }
 
+  function cancel() {
+    if (onCancel) onCancel();
+    else router.push("/vault");
+  }
+
   async function onDelete() {
     if (!item) return;
-    if (!confirm("¿Eliminar este ítem de forma permanente?")) return;
-    await deleteItem(item.id);
-    router.push("/vault");
+    if (!confirm("¿Mover este ítem a la papelera?")) return;
+    await trashItem(item.id);
+    if (onDeleted) onDeleted();
+    else router.push("/vault");
   }
 
   return (
-    <form onSubmit={onSubmit} className="mx-auto w-full max-w-2xl space-y-5">
+    <form onSubmit={onSubmit} className={compact ? "space-y-4" : "mx-auto w-full max-w-2xl space-y-5"}>
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">{title}</h1>
+        <h1 className={compact ? "text-lg font-semibold" : "text-xl font-semibold"}>{title}</h1>
         <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
           <input
             type="checkbox"
@@ -103,9 +127,12 @@ export function ItemForm({
         <div className="flex gap-2">
           {(
             [
-              ["login", "Inicio de sesión"],
+              ["login", "Contraseña"],
+              ["passkey", "Passkey"],
               ["note", "Nota"],
               ["card", "Tarjeta"],
+              ["contact", "Contacto"],
+              ["document", "Documento"],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -154,6 +181,15 @@ export function ItemForm({
       {type === "card" ? (
         <CardFields data={data as CardData} onChange={setData} />
       ) : null}
+      {type === "passkey" ? (
+        <PasskeyFields data={data as PasskeyData} onChange={setData} />
+      ) : null}
+      {type === "contact" ? (
+        <ContactFields data={data as ContactData} onChange={setData} />
+      ) : null}
+      {type === "document" ? (
+        <DocumentFields data={data as DocumentData} onChange={setData} />
+      ) : null}
 
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
 
@@ -167,7 +203,7 @@ export function ItemForm({
         </button>
         <button
           type="button"
-          onClick={() => router.push("/vault")}
+          onClick={cancel}
           className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm"
         >
           Cancelar
@@ -178,7 +214,7 @@ export function ItemForm({
             onClick={() => void onDelete()}
             className="ml-auto rounded-lg border border-[var(--danger)] px-4 py-2 text-sm text-[var(--danger)]"
           >
-            Eliminar
+            Mover a la papelera
           </button>
         ) : null}
       </div>
@@ -306,6 +342,113 @@ function CardFields({
           extra={<CopyButton value={data.cvv} />}
         />
       </div>
+      <label className="block text-sm">
+        Notas
+        <textarea
+          className={`${field} mt-1 min-h-24`}
+          value={data.notes}
+          onChange={(e) => onChange({ ...data, notes: e.target.value })}
+        />
+      </label>
+    </div>
+  );
+}
+
+function PasskeyFields({
+  data,
+  onChange,
+}: {
+  data: PasskeyData;
+  onChange: (data: PasskeyData) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <Field label="Nombre" value={data.name} onChange={(name) => onChange({ ...data, name })} />
+      <Field
+        label="Usuario"
+        value={data.username}
+        onChange={(username) => onChange({ ...data, username })}
+      />
+      <Field label="Sitio" value={data.site} onChange={(site) => onChange({ ...data, site })} />
+      <label className="block text-sm">
+        Notas
+        <textarea
+          className={`${field} mt-1 min-h-24`}
+          value={data.notes}
+          onChange={(e) => onChange({ ...data, notes: e.target.value })}
+        />
+      </label>
+    </div>
+  );
+}
+
+function ContactFields({
+  data,
+  onChange,
+}: {
+  data: ContactData;
+  onChange: (data: ContactData) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <Field label="Nombre" value={data.name} onChange={(name) => onChange({ ...data, name })} />
+      <Field label="Email" value={data.email} onChange={(email) => onChange({ ...data, email })} extra={<CopyButton value={data.email} />} />
+      <Field label="Teléfono" value={data.phone} onChange={(phone) => onChange({ ...data, phone })} extra={<CopyButton value={data.phone} />} />
+      <Field label="Dirección" value={data.address} onChange={(address) => onChange({ ...data, address })} />
+      <label className="block text-sm">
+        Notas
+        <textarea
+          className={`${field} mt-1 min-h-24`}
+          value={data.notes}
+          onChange={(e) => onChange({ ...data, notes: e.target.value })}
+        />
+      </label>
+    </div>
+  );
+}
+
+function DocumentFields({
+  data,
+  onChange,
+}: {
+  data: DocumentData;
+  onChange: (data: DocumentData) => void;
+}) {
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    if (file.size > 512 * 1024) {
+      alert("El archivo no puede superar 512 KB.");
+      return;
+    }
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (const b of bytes) binary += String.fromCharCode(b);
+    onChange({
+      ...data,
+      name: data.name || file.name,
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      content: btoa(binary),
+    });
+  }
+
+  return (
+    <div className="space-y-3">
+      <Field label="Nombre" value={data.name} onChange={(name) => onChange({ ...data, name })} />
+      <label className="block text-sm">
+        Archivo
+        <input
+          className={`${field} mt-1`}
+          type="file"
+          onChange={(e) => void onFile(e.target.files?.[0])}
+        />
+      </label>
+      {data.fileName ? (
+        <p className="text-xs text-[var(--muted)]">
+          {data.fileName} {data.content ? `· ${(data.content.length * 0.75 / 1024).toFixed(1)} KB` : ""}
+        </p>
+      ) : null}
       <label className="block text-sm">
         Notas
         <textarea
