@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CopyButton } from "@/components/copy-button";
 import { PasswordGenerator } from "@/components/password-generator";
 import { useVault } from "@/components/vault-provider";
-import { deleteVaultFile, uploadVaultFile } from "@/lib/vault-file";
+import { deleteVaultFile, fileUploadErrorMessage, uploadVaultFile } from "@/lib/vault-file";
 import {
   emptyData,
   type CardData,
@@ -48,6 +48,7 @@ export function ItemForm({
   const [showGenerator, setShowGenerator] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [fileBusy, setFileBusy] = useState(false);
 
   const title = useMemo(() => {
     if (item) return "Editar ítem";
@@ -67,6 +68,17 @@ export function ItemForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (type === "document") {
+      const doc = data as DocumentData;
+      if (fileBusy) {
+        setError("Espera a que termine la subida del archivo");
+        return;
+      }
+      if (!doc.fileKey && !doc.content) {
+        setError("Adjunta un archivo antes de guardar");
+        return;
+      }
+    }
     setSaving(true);
     setError(null);
     try {
@@ -189,7 +201,12 @@ export function ItemForm({
         <ContactFields data={data as ContactData} onChange={setData} />
       ) : null}
       {type === "document" ? (
-        <DocumentFields data={data as DocumentData} onChange={setData} getVaultKey={getVaultKey} />
+        <DocumentFields
+          data={data as DocumentData}
+          onChange={setData}
+          getVaultKey={getVaultKey}
+          onBusyChange={setFileBusy}
+        />
       ) : null}
 
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
@@ -197,7 +214,7 @@ export function ItemForm({
       <div className="flex flex-wrap gap-3">
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || fileBusy}
           className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60"
         >
           {saving ? "Guardando…" : "Guardar"}
@@ -412,13 +429,19 @@ function DocumentFields({
   data,
   onChange,
   getVaultKey,
+  onBusyChange,
 }: {
   data: DocumentData;
   onChange: (data: DocumentData) => void;
   getVaultKey: () => CryptoKey | null;
+  onBusyChange?: (busy: boolean) => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -428,15 +451,17 @@ function DocumentFields({
       return;
     }
     setBusy(true);
+    onBusyChange?.(true);
     setError(null);
     try {
       const uploaded = await uploadVaultFile(file, vaultKey);
-      if (data.fileKey && data.fileKey !== uploaded.fileKey) {
-        await deleteVaultFile(data.fileKey).catch(() => undefined);
+      const current = dataRef.current;
+      if (current.fileKey && current.fileKey !== uploaded.fileKey) {
+        await deleteVaultFile(current.fileKey).catch(() => undefined);
       }
       onChange({
-        ...data,
-        name: data.name || file.name,
+        ...current,
+        name: current.name || file.name,
         fileName: uploaded.fileName,
         mimeType: uploaded.mimeType,
         size: uploaded.size,
@@ -444,38 +469,92 @@ function DocumentFields({
         content: "",
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo subir el archivo");
+      setError(fileUploadErrorMessage(err));
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
+      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
   const sizeLabel = data.size
-    ? `· ${(data.size / 1024).toFixed(1)} KB`
+    ? `${(data.size / 1024).toFixed(1)} KB`
     : data.content
-      ? `· ${(data.content.length * 0.75 / 1024).toFixed(1)} KB`
+      ? `${(data.content.length * 0.75 / 1024).toFixed(1)} KB`
       : "";
 
   return (
     <div className="space-y-3">
       <Field label="Nombre" value={data.name} onChange={(name) => onChange({ ...data, name })} />
-      <label className="block text-sm">
-        Archivo
+      <div className="text-sm">
+        <div className="mb-1">Archivo</div>
         <input
-          className={`${field} mt-1`}
+          ref={inputRef}
           type="file"
+          className="sr-only"
           disabled={busy}
-          onChange={(e) => void onFile(e.target.files?.[0])}
+          onChange={(e) => void onFile(e.currentTarget.files?.[0])}
         />
-      </label>
-      {busy ? <p className="text-xs text-[var(--muted)]">Cifrando y subiendo a S3…</p> : null}
+        {data.fileName ? (
+          <div className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)]/15 text-[var(--accent)]">
+              <FileIcon />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-medium">{data.fileName}</div>
+              <div className="text-xs text-[var(--muted)]">
+                {sizeLabel}
+                {data.fileKey ? " · guardado en S3" : ""}
+              </div>
+            </div>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+              className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-60"
+            >
+              {busy ? "Subiendo…" : "Cambiar"}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              void onFile(e.dataTransfer.files[0]);
+            }}
+            className={`flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-7 text-center transition ${
+              dragOver
+                ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                : "border-[var(--border)] bg-[var(--background)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/5"
+            } disabled:opacity-60`}
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent)]/15 text-[var(--accent)]">
+              <UploadIcon />
+            </span>
+            <span className="mt-3 text-sm font-medium">
+              {busy ? "Cifrando y subiendo…" : "Arrastra un archivo o haz clic para elegir"}
+            </span>
+            <span className="mt-1 text-xs text-[var(--muted)]">PDF, DOCX, imágenes… hasta 20 MB</span>
+          </button>
+        )}
+      </div>
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
-      {data.fileName ? (
-        <p className="text-xs text-[var(--muted)]">
-          {data.fileName} {sizeLabel}
-          {data.fileKey ? " · guardado en S3" : ""}
-        </p>
-      ) : null}
       <label className="block text-sm">
         Notas
         <textarea
@@ -485,6 +564,40 @@ function DocumentFields({
         />
       </label>
     </div>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 16V7m0 0 3.5 3.5M12 7 8.5 10.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5 16.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function FileIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M7 3.5h7l5 5V20a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 20V5A1.5 1.5 0 0 1 7 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M14 3.5V9h5.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
   );
 }
 

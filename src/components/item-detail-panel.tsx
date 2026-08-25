@@ -246,9 +246,33 @@ function PreviewFields({ item }: { item: VaultItemDecrypted }) {
     );
   }
   const data = item.data as DocumentData;
+  const sizeLabel = data.size
+    ? `${(data.size / 1024).toFixed(1)} KB`
+    : data.content
+      ? `${(data.content.length * 0.75 / 1024).toFixed(1)} KB`
+      : "";
+  const hasFile = Boolean(data.fileKey || data.content || data.fileName);
+
   return (
     <div className="divide-y divide-[var(--border)]">
-      <PreviewRow label="Archivo" value={data.fileName} />
+      <div className="py-3">
+        <div className="text-xs text-[var(--muted)]">Archivo</div>
+        {hasFile ? (
+          <div className="mt-2 flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)]/15 text-sm font-semibold text-[var(--accent)]">
+              D
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-medium">{data.fileName || "Archivo cifrado"}</div>
+              <div className="text-xs text-[var(--muted)]">{sizeLabel || "Listo para descargar"}</div>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Este registro no tiene un archivo. Pulsa Editar y adjúntalo de nuevo.
+          </p>
+        )}
+      </div>
       {data.fileKey || data.content ? <DocumentDownload data={data} /> : null}
       {data.notes ? <PreviewRow label="Notas" value={data.notes} multiline /> : null}
     </div>

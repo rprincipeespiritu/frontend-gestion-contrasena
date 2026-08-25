@@ -162,7 +162,7 @@ export function itemSubtitle(item: VaultItemDecrypted): string {
     return data.email || data.phone || "Contacto";
   }
   const data = item.data as DocumentData;
-  return data.fileName || data.mimeType || "Archivo cifrado";
+  return data.fileName || "Sin archivo adjunto";
 }
 
 export function itemMatchesQuery(item: VaultItemDecrypted, query: string): boolean {
