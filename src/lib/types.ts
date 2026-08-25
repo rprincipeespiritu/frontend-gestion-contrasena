@@ -50,6 +50,8 @@ export type DocumentData = {
   fileName: string;
   mimeType: string;
   content: string;
+  fileKey?: string;
+  size?: number;
   notes: string;
 };
 
@@ -124,7 +126,7 @@ export function emptyData(type: ItemType): ItemData {
   if (type === "note") return { title: "", content: "" };
   if (type === "card") return { name: "", holder: "", number: "", expiry: "", cvv: "", notes: "" };
   if (type === "contact") return { name: "", email: "", phone: "", address: "", notes: "" };
-  return { name: "", fileName: "", mimeType: "", content: "", notes: "" };
+  return { name: "", fileName: "", mimeType: "", content: "", fileKey: "", size: 0, notes: "" };
 }
 
 export function itemTitle(item: VaultItemDecrypted): string {

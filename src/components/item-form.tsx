@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CopyButton } from "@/components/copy-button";
 import { PasswordGenerator } from "@/components/password-generator";
 import { useVault } from "@/components/vault-provider";
+import { deleteVaultFile, uploadVaultFile } from "@/lib/vault-file";
 import {
   emptyData,
   type CardData,
@@ -38,7 +39,7 @@ export function ItemForm({
   onDeleted?: () => void;
 }) {
   const router = useRouter();
-  const { folders, createItem, updateItem, trashItem } = useVault();
+  const { folders, createItem, updateItem, trashItem, getVaultKey } = useVault();
   const resolvedType = item?.type ?? initialType;
   const [type, setType] = useState<ItemType>(resolvedType);
   const [favorite, setFavorite] = useState(item?.favorite ?? false);
@@ -188,7 +189,7 @@ export function ItemForm({
         <ContactFields data={data as ContactData} onChange={setData} />
       ) : null}
       {type === "document" ? (
-        <DocumentFields data={data as DocumentData} onChange={setData} />
+        <DocumentFields data={data as DocumentData} onChange={setData} getVaultKey={getVaultKey} />
       ) : null}
 
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
@@ -410,28 +411,50 @@ function ContactFields({
 function DocumentFields({
   data,
   onChange,
+  getVaultKey,
 }: {
   data: DocumentData;
   onChange: (data: DocumentData) => void;
+  getVaultKey: () => CryptoKey | null;
 }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   async function onFile(file: File | undefined) {
     if (!file) return;
-    if (file.size > 512 * 1024) {
-      alert("El archivo no puede superar 512 KB.");
+    const vaultKey = getVaultKey();
+    if (!vaultKey) {
+      setError("Bóveda bloqueada");
       return;
     }
-    const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    for (const b of bytes) binary += String.fromCharCode(b);
-    onChange({
-      ...data,
-      name: data.name || file.name,
-      fileName: file.name,
-      mimeType: file.type || "application/octet-stream",
-      content: btoa(binary),
-    });
+    setBusy(true);
+    setError(null);
+    try {
+      const uploaded = await uploadVaultFile(file, vaultKey);
+      if (data.fileKey && data.fileKey !== uploaded.fileKey) {
+        await deleteVaultFile(data.fileKey).catch(() => undefined);
+      }
+      onChange({
+        ...data,
+        name: data.name || file.name,
+        fileName: uploaded.fileName,
+        mimeType: uploaded.mimeType,
+        size: uploaded.size,
+        fileKey: uploaded.fileKey,
+        content: "",
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo subir el archivo");
+    } finally {
+      setBusy(false);
+    }
   }
+
+  const sizeLabel = data.size
+    ? `· ${(data.size / 1024).toFixed(1)} KB`
+    : data.content
+      ? `· ${(data.content.length * 0.75 / 1024).toFixed(1)} KB`
+      : "";
 
   return (
     <div className="space-y-3">
@@ -441,12 +464,16 @@ function DocumentFields({
         <input
           className={`${field} mt-1`}
           type="file"
+          disabled={busy}
           onChange={(e) => void onFile(e.target.files?.[0])}
         />
       </label>
+      {busy ? <p className="text-xs text-[var(--muted)]">Cifrando y subiendo a S3…</p> : null}
+      {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
       {data.fileName ? (
         <p className="text-xs text-[var(--muted)]">
-          {data.fileName} {data.content ? `· ${(data.content.length * 0.75 / 1024).toFixed(1)} KB` : ""}
+          {data.fileName} {sizeLabel}
+          {data.fileKey ? " · guardado en S3" : ""}
         </p>
       ) : null}
       <label className="block text-sm">

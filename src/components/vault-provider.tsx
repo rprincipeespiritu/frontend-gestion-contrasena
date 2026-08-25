@@ -18,10 +18,12 @@ import type {
   FolderDecrypted,
   ItemData,
   ItemType,
+  DocumentData,
   UnlockPayload,
   VaultItemDecrypted,
 } from "@/lib/types";
 import { isItemType } from "@/lib/types";
+import { deleteVaultFile } from "@/lib/vault-file";
 
 type VaultContextValue = {
   email: string;
@@ -282,10 +284,16 @@ export function VaultProvider({
   }, []);
 
   const destroyItem = useCallback(async (id: string) => {
+    const found =
+      trashItems.find((item) => item.id === id) ?? items.find((item) => item.id === id);
+    if (found?.type === "document") {
+      const fileKey = (found.data as DocumentData).fileKey;
+      if (fileKey) await deleteVaultFile(fileKey).catch(() => undefined);
+    }
     await api(`/api/items/${id}?permanent=1`, { method: "DELETE" });
     setTrashItems((prev) => prev.filter((item) => item.id !== id));
     setItems((prev) => prev.filter((item) => item.id !== id));
-  }, []);
+  }, [items, trashItems]);
 
   const touchItem = useCallback(async (id: string) => {
     const key = keyRef.current;

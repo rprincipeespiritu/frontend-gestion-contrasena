@@ -16,6 +16,7 @@ import {
   type PasskeyData,
   type VaultItemDecrypted,
 } from "@/lib/types";
+import { downloadVaultFile } from "@/lib/vault-file";
 
 export function ItemDetailPanel({
   item,
@@ -248,7 +249,7 @@ function PreviewFields({ item }: { item: VaultItemDecrypted }) {
   return (
     <div className="divide-y divide-[var(--border)]">
       <PreviewRow label="Archivo" value={data.fileName} />
-      {data.content ? <DocumentDownload data={data} /> : null}
+      {data.fileKey || data.content ? <DocumentDownload data={data} /> : null}
       {data.notes ? <PreviewRow label="Notas" value={data.notes} multiline /> : null}
     </div>
   );
@@ -328,28 +329,53 @@ function WebsiteRow({ label = "Sitio web", value }: { label?: string; value: str
 }
 
 function DocumentDownload({ data }: { data: DocumentData }) {
-  function download() {
-    const binary = atob(data.content);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-    const blob = new Blob([bytes], { type: data.mimeType || "application/octet-stream" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = data.fileName || "archivo";
-    a.click();
-    URL.revokeObjectURL(url);
+  const { getVaultKey } = useVault();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function download() {
+    setBusy(true);
+    setError(null);
+    try {
+      if (data.fileKey) {
+        const vaultKey = getVaultKey();
+        if (!vaultKey) throw new Error("Bóveda bloqueada");
+        await downloadVaultFile(
+          data.fileKey,
+          vaultKey,
+          data.fileName,
+          data.mimeType,
+        );
+        return;
+      }
+      const binary = atob(data.content);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: data.mimeType || "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.fileName || "archivo";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo descargar");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <div className="py-3">
       <button
         type="button"
-        onClick={download}
-        className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--surface-2)]"
+        disabled={busy}
+        onClick={() => void download()}
+        className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--surface-2)] disabled:opacity-60"
       >
-        Descargar archivo
+        {busy ? "Descargando…" : "Descargar archivo"}
       </button>
+      {error ? <p className="mt-2 text-sm text-[var(--danger)]">{error}</p> : null}
     </div>
   );
 }

@@ -77,15 +77,33 @@ export async function generateVaultKey(): Promise<CryptoKey> {
   ]);
 }
 
-async function aesEncrypt(data: BufferSource, key: CryptoKey): Promise<string> {
+export async function encryptBytes(data: Uint8Array, key: CryptoKey): Promise<Uint8Array> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const cipher = new Uint8Array(
-    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data),
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data as BufferSource),
   );
   const packed = new Uint8Array(iv.length + cipher.length);
   packed.set(iv, 0);
   packed.set(cipher, iv.length);
-  return bufToB64(packed);
+  return packed;
+}
+
+export async function decryptBytes(packed: Uint8Array, key: CryptoKey): Promise<Uint8Array> {
+  if (packed.length < 13) throw new Error("Ciphertext inválido");
+  const iv = packed.slice(0, 12);
+  const cipher = packed.slice(12);
+  return new Uint8Array(
+    await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv as BufferSource },
+      key,
+      cipher as BufferSource,
+    ),
+  );
+}
+
+async function aesEncrypt(data: BufferSource, key: CryptoKey): Promise<string> {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer);
+  return bufToB64(await encryptBytes(bytes, key));
 }
 
 async function aesDecrypt(payloadB64: string, key: CryptoKey): Promise<ArrayBuffer> {
