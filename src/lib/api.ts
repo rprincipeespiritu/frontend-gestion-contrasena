@@ -7,7 +7,10 @@ export class ApiError extends Error {
 }
 
 const TOKEN_KEY = "vault_token";
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(
+  /\/+$/,
+  "",
+);
 
 export function setToken(token: string | null) {
   if (typeof window === "undefined") return;

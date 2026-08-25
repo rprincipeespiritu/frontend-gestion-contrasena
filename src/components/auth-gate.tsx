@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VaultProvider } from "@/components/vault-provider";
 import { AppShell } from "@/components/app-shell";
-import { ApiError, api, getToken } from "@/lib/api";
+import { API_URL, ApiError, api, getToken } from "@/lib/api";
 import type { UnlockPayload } from "@/lib/types";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -28,7 +28,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           router.replace("/login");
           return;
         }
-        setError("No se pudo conectar con la API en http://localhost:4000");
+        setError(`No se pudo conectar con la API en ${API_URL}`);
       });
   }, [router]);
 
