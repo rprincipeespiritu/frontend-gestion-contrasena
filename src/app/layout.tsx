@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vault — Gestor de contraseñas",
-  description: "Bóveda de contraseñas cifrada de extremo a extremo",
+  title: "CifraBox — Gestor de contraseñas",
+  description: "Gestor de contraseñas cifrado de extremo a extremo",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

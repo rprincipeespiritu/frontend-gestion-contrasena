@@ -36,6 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [folderError, setFolderError] = useState<string | null>(null);
   const [folderBusy, setFolderBusy] = useState(false);
@@ -56,6 +57,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [lock]);
+
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNavOpen(false);
+    };
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onMq = () => {
+      if (mq.matches) setNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    mq.addEventListener("change", onMq);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      mq.removeEventListener("change", onMq);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [navOpen]);
 
   useEffect(() => {
     if (!folderModalOpen) return;
@@ -98,103 +123,157 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const closeNav = () => setNavOpen(false);
+
+  const sidebar = (mobile: boolean) => (
+    <>
+      <div className="mb-6 flex items-center justify-between gap-2 px-2">
+        <Link href="/vault" onClick={closeNav} className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)] text-sm font-black text-white">
+            C
+          </div>
+          <span className="font-semibold">CifraBox</span>
+        </Link>
+        {mobile ? (
+          <button
+            type="button"
+            aria-label="Cerrar menú"
+            onClick={closeNav}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
+      <nav className="space-y-1 text-sm">
+        {NAV.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={closeNav}
+            className={`block rounded-lg px-3 py-2 ${
+              pathname === item.href
+                ? "bg-[var(--accent)]/10 font-medium text-[var(--accent)]"
+                : "text-[var(--muted)] hover:bg-[var(--surface-2)]"
+            }`}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+      <div className="mt-6 flex items-center justify-between px-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+          Carpetas
+        </div>
+        <button
+          type="button"
+          title="Añadir carpeta"
+          onClick={() => {
+            closeNav();
+            setFolderModalOpen(true);
+          }}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            />
+            <path d="M12 11v6M9 14h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-auto">
+        {folders.length === 0 ? (
+          <p className="px-3 text-xs text-[var(--muted)]">Aún no hay carpetas.</p>
+        ) : null}
+        {folders.map((folder) => (
+          <div key={folder.id} className="flex items-center">
+            <Link
+              href={`/vault?folder=${folder.id}`}
+              onClick={closeNav}
+              className={`min-w-0 flex-1 truncate rounded-lg px-3 py-1.5 text-sm hover:bg-[var(--surface-2)] ${
+                pathname === "/vault"
+                  ? "text-[var(--foreground)]"
+                  : "text-[var(--muted)]"
+              }`}
+            >
+              {folder.name}
+            </Link>
+            <button
+              type="button"
+              title="Eliminar carpeta"
+              className="px-2 text-xs text-[var(--muted)] hover:text-[var(--danger)]"
+              onClick={() => void deleteFolder(folder.id)}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="mt-auto shrink-0 space-y-1 pt-6 text-sm">
+        {TOOLS.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={closeNav}
+            className={`block rounded-lg px-3 py-2 ${
+              pathname === item.href
+                ? "bg-[var(--accent)]/10 text-[var(--accent)]"
+                : "text-[var(--muted)] hover:bg-[var(--surface-2)]"
+            }`}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </div>
+    </>
+  );
+
   return (
     <div className="flex h-full min-h-full flex-1">
       <aside className="hidden h-full min-h-0 w-64 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--surface)] px-3 py-4 md:flex">
-        <Link href="/vault" className="mb-6 flex items-center gap-2 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)] text-sm font-black text-white">
-            V
-          </div>
-          <span className="font-semibold">Vault</span>
-        </Link>
-        <nav className="space-y-1 text-sm">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`block rounded-lg px-3 py-2 ${
-                pathname === item.href
-                  ? "bg-[var(--accent)]/10 font-medium text-[var(--accent)]"
-                  : "text-[var(--muted)] hover:bg-[var(--surface-2)]"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className="mt-6 flex items-center justify-between px-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-            Carpetas
-          </div>
-          <button
-            type="button"
-            title="Añadir carpeta"
-            onClick={() => setFolderModalOpen(true)}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--muted)] hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              />
-              <path d="M12 11v6M9 14h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-        <div className="mt-2 min-h-0 flex-1 space-y-1 overflow-auto">
-          {folders.length === 0 ? (
-            <p className="px-3 text-xs text-[var(--muted)]">Aún no hay carpetas.</p>
-          ) : null}
-          {folders.map((folder) => (
-            <div key={folder.id} className="flex items-center">
-              <Link
-                href={`/vault?folder=${folder.id}`}
-                className={`min-w-0 flex-1 truncate rounded-lg px-3 py-1.5 text-sm hover:bg-[var(--surface-2)] ${
-                  pathname === "/vault"
-                    ? "text-[var(--foreground)]"
-                    : "text-[var(--muted)]"
-                }`}
-              >
-                {folder.name}
-              </Link>
-              <button
-                type="button"
-                title="Eliminar carpeta"
-                className="px-2 text-xs text-[var(--muted)] hover:text-[var(--danger)]"
-                onClick={() => void deleteFolder(folder.id)}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-        <div className="mt-auto shrink-0 space-y-1 pt-6 text-sm">
-          {TOOLS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`block rounded-lg px-3 py-2 ${
-                pathname === item.href
-                  ? "bg-[var(--accent)]/10 text-[var(--accent)]"
-                  : "text-[var(--muted)] hover:bg-[var(--surface-2)]"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
+        {sidebar(false)}
+      </aside>
+
+      {navOpen ? (
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={closeNav}
+        />
+      ) : null}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex h-full w-64 max-w-[85vw] flex-col border-r border-[var(--border)] bg-[var(--surface)] px-3 py-4 shadow-xl transition-transform duration-200 md:hidden ${
+          navOpen ? "translate-x-0" : "pointer-events-none -translate-x-full"
+        }`}
+        aria-hidden={!navOpen}
+      >
+        {sidebar(true)}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="grid grid-cols-[1fr_minmax(12rem,36rem)_auto] items-center gap-4 border-b border-[var(--border)] bg-[var(--surface)] px-6 py-3">
-          <div />
+        <header className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-3 md:grid md:grid-cols-[1fr_minmax(12rem,36rem)_auto] md:gap-4 md:px-6">
+          <button
+            type="button"
+            aria-label="Abrir menú"
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen(true)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[var(--foreground)] hover:bg-[var(--surface-2)] md:hidden"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+          <div className="hidden md:block" />
           <input
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar todos los elementos  Ctrl + F"
-            className="w-full rounded-full border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm outline-none focus:border-[var(--accent)]"
+            className="min-w-0 w-full rounded-full border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm outline-none focus:border-[var(--accent)]"
           />
           <div className="relative justify-self-end">
             <button
@@ -246,7 +325,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {folderModalOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
           onClick={closeFolderModal}
         >
           <form
