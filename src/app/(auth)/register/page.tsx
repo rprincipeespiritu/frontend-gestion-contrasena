@@ -57,7 +57,7 @@ export default function RegisterPage() {
       <h1 className="text-lg font-semibold">Crear cuenta</h1>
       <p className="text-xs leading-5 text-[var(--muted)]">
         La contraseña maestra nunca sale de este navegador. Si la olvidas, no hay forma de
-        recuperar la bóveda.
+        recuperar la bóveda. Te enviaremos un correo de bienvenida a tu email.
       </p>
       <label className="block text-sm">
         Email
