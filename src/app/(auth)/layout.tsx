@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             C
           </div>
           <div>
-            <div className="font-semibold">CifraBox</div>
+            <div className="font-semibold">CifraLock</div>
             <div className="text-xs text-[var(--muted)]">Bóveda cifrada de extremo a extremo</div>
           </div>
         </div>

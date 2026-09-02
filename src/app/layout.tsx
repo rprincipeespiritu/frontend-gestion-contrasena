@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CifraBox — Gestor de contraseñas",
+  title: "CifraLock — Gestor de contraseñas",
   description: "Gestor de contraseñas cifrado de extremo a extremo",
 };
 
