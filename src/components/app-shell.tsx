@@ -132,7 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)] text-sm font-black text-white">
             C
           </div>
-          <span className="font-semibold">CifraBox</span>
+          <span className="font-semibold">CifraLock</span>
         </Link>
         {mobile ? (
           <button
