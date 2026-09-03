@@ -18,6 +18,8 @@ type Mask = {
 type MasksPayload = {
   domain: string | null;
   forwardingReady: boolean;
+  mailConfigured: boolean;
+  inboundSecretConfigured: boolean;
   masks: Mask[];
 };
 
@@ -33,6 +35,8 @@ function MasksInner() {
   const { createItem } = useVault();
   const [domain, setDomain] = useState<string | null>(null);
   const [forwardingReady, setForwardingReady] = useState(false);
+  const [mailConfigured, setMailConfigured] = useState(false);
+  const [inboundSecretConfigured, setInboundSecretConfigured] = useState(false);
   const [masks, setMasks] = useState<Mask[]>([]);
   const [label, setLabel] = useState("");
   const [busy, setBusy] = useState(false);
@@ -43,6 +47,8 @@ function MasksInner() {
     const data = await api<MasksPayload>("/api/masks");
     setDomain(data.domain);
     setForwardingReady(data.forwardingReady);
+    setMailConfigured(Boolean(data.mailConfigured));
+    setInboundSecretConfigured(Boolean(data.inboundSecretConfigured));
     setMasks(data.masks);
   }
 
@@ -140,11 +146,7 @@ function MasksInner() {
 
       <div className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-lg font-semibold">Crear máscara</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          {forwardingReady
-            ? `Los mensajes a ${domain} se reenvían a tu correo de cuenta.`
-            : "Puedes crear alias ahora. El reenvío se activa cuando configures MASK_EMAIL_DOMAIN y SendGrid Inbound Parse."}
-        </p>
+        <p className="mt-1 text-sm text-[var(--muted)]">{forwardingStatus(domain, forwardingReady, mailConfigured, inboundSecretConfigured)}</p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <input
             value={label}
@@ -217,6 +219,27 @@ function MasksInner() {
       </div>
     </div>
   );
+}
+
+function forwardingStatus(
+  domain: string | null,
+  forwardingReady: boolean,
+  mailConfigured: boolean,
+  inboundSecretConfigured: boolean,
+) {
+  if (forwardingReady && domain) {
+    return `Los mensajes a ${domain} se reenvían a tu correo de cuenta.`;
+  }
+  if (domain && !mailConfigured) {
+    return `Dominio listo (${domain}). Falta SendGrid en Railway: SENDGRID_API_KEY y SENDGRID_FROM_EMAIL (el correo verificado en SendGrid).`;
+  }
+  if (domain && mailConfigured && !inboundSecretConfigured) {
+    return `SendGrid está listo. Falta MASK_INBOUND_SECRET, el mismo token de la URL de Inbound Parse.`;
+  }
+  if (!domain) {
+    return "Puedes crear alias ahora. Para reenvío real, MASK_EMAIL_DOMAIN debe ser mask.cifralock.com y SendGrid Inbound Parse debe estar activo.";
+  }
+  return "El reenvío aún no está listo.";
 }
 
 function Benefit({ title, text }: { title: string; text: string }) {
