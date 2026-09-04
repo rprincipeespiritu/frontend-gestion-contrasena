@@ -113,8 +113,13 @@ export default function LoginPage() {
       </button>
       <p className="text-center text-sm text-[var(--muted)]">
         ¿No tienes cuenta?{" "}
-        <Link href="/register" className="text-[var(--accent)]">
+        <Link href="/register?trial=1" className="text-[var(--accent)]">
           Crear una
+        </Link>
+      </p>
+      <p className="text-center text-xs text-[var(--muted)]">
+        <Link href="/" className="hover:text-[var(--foreground)]">
+          Volver al inicio
         </Link>
       </p>
     </form>

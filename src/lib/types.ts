@@ -95,6 +95,8 @@ export type FolderDecrypted = {
   name: string;
 };
 
+import type { PlanStatus } from "./plan";
+
 export type UnlockPayload = {
   token?: string;
   user: { id: string; email: string; avatarUrl?: string | null };
@@ -105,6 +107,7 @@ export type UnlockPayload = {
   recoveryBlob?: string | null;
   recoverySalt?: string | null;
   recoveryIterations?: number | null;
+  subscription?: PlanStatus;
 };
 
 export function isItemType(value: string): value is ItemType {

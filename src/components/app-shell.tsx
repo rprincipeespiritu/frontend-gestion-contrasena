@@ -24,6 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     locked,
     email,
     avatarUrl,
+    subscription,
     search,
     setSearch,
     lock,
@@ -289,8 +290,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="flex flex-col items-center px-3 py-4">
                   <ProfilePhotoPicker />
                   <div className="mt-3 truncate text-center font-medium">{email}</div>
-                  <div className="text-xs text-[var(--muted)]">Plan gratuito</div>
+                  <div className="text-xs text-[var(--muted)]">{subscription.label}</div>
                 </div>
+                <Link
+                  href="/plan"
+                  className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-2)]"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Plan y suscripción
+                </Link>
                 <Link
                   href="/settings"
                   className="block rounded-lg px-3 py-2 hover:bg-[var(--surface-2)]"
