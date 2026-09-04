@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { LockGate } from "@/components/lock-gate";
 import { CopyButton } from "@/components/copy-button";
 import { ApiError, api } from "@/lib/api";
@@ -32,7 +33,7 @@ export default function MasksPage() {
 }
 
 function MasksInner() {
-  const { createItem } = useVault();
+  const { createItem, subscription } = useVault();
   const [domain, setDomain] = useState<string | null>(null);
   const [forwardingReady, setForwardingReady] = useState(false);
   const [mailConfigured, setMailConfigured] = useState(false);
@@ -147,6 +148,15 @@ function MasksInner() {
       <div className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="text-lg font-semibold">Crear máscara</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">{forwardingStatus(domain, forwardingReady, mailConfigured, inboundSecretConfigured)}</p>
+        {!subscription.premium ? (
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            El plan gratuito incluye {subscription.limits.masks} máscara.{" "}
+            <Link href="/plan" className="text-[var(--accent)]">
+              Activa la prueba o Premium
+            </Link>{" "}
+            para crear más.
+          </p>
+        ) : null}
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <input
             value={label}

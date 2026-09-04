@@ -1,25 +1,12 @@
-"use client";
+import type { Metadata } from "next";
+import { LandingPage } from "@/components/landing-page";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { api, getToken } from "@/lib/api";
+export const metadata: Metadata = {
+  title: "CifraLock — Gestor de contraseñas cifrado",
+  description:
+    "Bóveda de contraseñas con cifrado de extremo a extremo, máscaras de email y 14 días de Premium al crear tu cuenta.",
+};
 
 export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!getToken()) {
-      router.replace("/login");
-      return;
-    }
-    api("/api/auth/me")
-      .then(() => router.replace("/vault"))
-      .catch(() => router.replace("/login"));
-  }, [router]);
-
-  return (
-    <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted)]">
-      Cargando…
-    </div>
-  );
+  return <LandingPage />;
 }

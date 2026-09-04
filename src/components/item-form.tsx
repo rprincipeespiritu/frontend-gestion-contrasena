@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CopyButton } from "@/components/copy-button";
 import { PasswordGenerator } from "@/components/password-generator";
 import { useVault } from "@/components/vault-provider";
+import { ApiError } from "@/lib/api";
 import { deleteVaultFile, fileUploadErrorMessage, uploadVaultFile } from "@/lib/vault-file";
 import {
   emptyData,
@@ -101,8 +102,8 @@ export function ItemForm({
         if (onSaved) onSaved(id);
         else router.push("/vault");
       }
-    } catch {
-      setError("No se pudo guardar el ítem.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "No se pudo guardar el ítem.");
     } finally {
       setSaving(false);
     }

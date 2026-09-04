@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { LockGate } from "@/components/lock-gate";
 import { useVault } from "@/components/vault-provider";
 import { api } from "@/lib/api";
@@ -70,6 +71,19 @@ function SettingsInner() {
         <h1 className="text-2xl font-semibold">Ajustes</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">Bloqueo automático y recuperación de cuenta.</p>
       </div>
+
+      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+        <h2 className="font-semibold">Plan y suscripción</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Activa la prueba de 14 días o pasa a Premium.
+        </p>
+        <Link
+          href="/plan"
+          className="mt-3 inline-block rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
+        >
+          Ver plan
+        </Link>
+      </section>
 
       <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
         <h2 className="font-semibold">Autobloqueo</h2>

@@ -24,11 +24,14 @@ import type {
 } from "@/lib/types";
 import { isItemType } from "@/lib/types";
 import { deleteVaultFile } from "@/lib/vault-file";
+import { FREE_PLAN, type PlanStatus } from "@/lib/plan";
 
 type VaultContextValue = {
   email: string;
   avatarUrl: string | null;
   setAvatarUrl: (url: string | null) => void;
+  subscription: PlanStatus;
+  setSubscription: (value: PlanStatus) => void;
   locked: boolean;
   busy: boolean;
   error: string | null;
@@ -116,10 +119,12 @@ async function decryptFolders(folders: EncryptedFolder[], key: CryptoKey) {
 export function VaultProvider({
   email,
   initialAvatarUrl = null,
+  initialSubscription = FREE_PLAN,
   children,
 }: {
   email: string;
   initialAvatarUrl?: string | null;
+  initialSubscription?: PlanStatus;
   children: React.ReactNode;
 }) {
   const keyRef = useRef<CryptoKey | null>(memoryKey);
@@ -127,6 +132,7 @@ export function VaultProvider({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl);
+  const [subscription, setSubscription] = useState<PlanStatus>(initialSubscription);
   const [items, setItems] = useState<VaultItemDecrypted[]>([]);
   const [trashItems, setTrashItems] = useState<VaultItemDecrypted[]>([]);
   const [folders, setFolders] = useState<FolderDecrypted[]>([]);
@@ -360,6 +366,8 @@ export function VaultProvider({
       email,
       avatarUrl,
       setAvatarUrl,
+      subscription,
+      setSubscription,
       locked,
       busy,
       error,
@@ -385,6 +393,7 @@ export function VaultProvider({
     [
       email,
       avatarUrl,
+      subscription,
       locked,
       busy,
       error,
