@@ -7,6 +7,7 @@ export type PlanStatus = {
   trialDays: number;
   trialEndsAt: string | null;
   planExpiresAt: string | null;
+  priceLabel: string;
   canStartTrial: boolean;
   checkoutEnabled: boolean;
   portalEnabled: boolean;
@@ -23,6 +24,7 @@ export const FREE_PLAN: PlanStatus = {
   trialDays: 14,
   trialEndsAt: null,
   planExpiresAt: null,
+  priceLabel: "US$ 3,99 / mes",
   canStartTrial: true,
   checkoutEnabled: false,
   portalEnabled: false,

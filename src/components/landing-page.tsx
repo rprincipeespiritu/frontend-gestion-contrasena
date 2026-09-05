@@ -155,7 +155,7 @@ export function LandingPage() {
             />
             <PlanCard
               name="Premium"
-              price="US$ 4,99 / mes"
+              price="US$ 3,99 / mes"
               points={["Suscripción mensual", "Límites de Premium de forma continua", "Cancela cuando quieras desde tu cuenta"]}
               href={signedIn ? "/plan" : "/register?trial=1"}
               cta={signedIn ? "Ir a suscripción" : "Empezar y luego suscribirme"}

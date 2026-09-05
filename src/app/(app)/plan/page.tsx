@@ -128,7 +128,7 @@ function PlanInner() {
         <section className="rounded-2xl border border-[var(--accent)] bg-[var(--surface)] p-5">
           <h2 className="font-semibold">Premium</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            Bóveda sin el tope gratuito y hasta 100 máscaras. Pago mensual con Stripe.
+            Bóveda sin el tope gratuito y hasta 100 máscaras. {plan.priceLabel ?? "US$ 3,99 / mes"} con Paddle.
           </p>
           {plan.portalEnabled ? (
             <button
@@ -151,7 +151,7 @@ function PlanInner() {
           )}
           {!plan.checkoutEnabled && plan.plan !== "premium" ? (
             <p className="mt-3 text-xs text-[var(--muted)]">
-              El cobro se habilita cuando Stripe esté configurado en el backend. La prueba funciona igual.
+              El cobro se habilita cuando Paddle esté configurado en el backend. La prueba funciona igual.
             </p>
           ) : null}
         </section>
