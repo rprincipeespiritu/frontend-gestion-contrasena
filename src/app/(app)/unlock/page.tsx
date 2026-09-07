@@ -51,7 +51,7 @@ export default function UnlockPage() {
         <button
           type="submit"
           disabled={busy}
-          className="mt-5 w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-60"
+          className="mt-5 w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-semibold text-white disabled:opacity-60"
         >
           {busy ? "Derivando clave…" : "Desbloquear"}
         </button>
