@@ -124,7 +124,7 @@ function RegisterForm() {
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-60"
+        className="w-full rounded-lg bg-[var(--accent)] py-2.5 text-sm font-semibold text-white disabled:opacity-60"
       >
         {busy ? "Cifrando bóveda…" : startTrial ? "Crear bóveda con prueba" : "Crear bóveda"}
       </button>

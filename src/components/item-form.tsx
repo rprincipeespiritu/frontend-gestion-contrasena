@@ -155,7 +155,7 @@ export function ItemForm({
               onClick={() => changeType(value)}
               className={`rounded-full px-3 py-1 text-xs font-medium ${
                 type === value
-                  ? "bg-[var(--accent)] text-slate-950"
+                  ? "bg-[var(--accent)] text-white"
                   : "border border-[var(--border)] text-[var(--muted)]"
               }`}
             >
@@ -216,7 +216,7 @@ export function ItemForm({
         <button
           type="submit"
           disabled={saving || fileBusy}
-          className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60"
+          className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
           {saving ? "Guardando…" : "Guardar"}
         </button>
