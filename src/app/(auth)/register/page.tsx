@@ -113,7 +113,7 @@ function RegisterForm() {
           className="mt-0.5 accent-[var(--accent)]"
         />
         <span>
-          <span className="font-medium">Activar plan de prueba 14 días</span>
+          <span className="font-medium">Activar plan de prueba 30 días</span>
           <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">
             Desbloquea Premium al crear la cuenta. Luego puedes suscribirte o seguir con el plan
             gratuito. Solo una vez por cuenta.

@@ -61,11 +61,14 @@ type VaultContextValue = {
     },
   ) => Promise<void>;
   trashItem: (id: string) => Promise<void>;
+  trashMany: (ids: string[]) => Promise<void>;
   restoreItem: (id: string) => Promise<void>;
   destroyItem: (id: string) => Promise<void>;
+  emptyTrash: () => Promise<void>;
   touchItem: (id: string) => Promise<void>;
-  createFolder: (name: string) => Promise<void>;
+  createFolder: (name: string) => Promise<FolderDecrypted>;
   deleteFolder: (id: string) => Promise<void>;
+  refreshVault: () => Promise<void>;
 };
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -89,6 +92,15 @@ function toDecrypted(item: EncryptedItem, data: ItemData): VaultItemDecrypted {
   };
 }
 
+function uniqueById<T extends { id: string }>(list: T[]): T[] {
+  const seen = new Set<string>();
+  return list.filter((entry) => {
+    if (seen.has(entry.id)) return false;
+    seen.add(entry.id);
+    return true;
+  });
+}
+
 async function decryptItems(items: EncryptedItem[], key: CryptoKey) {
   const result: VaultItemDecrypted[] = [];
   for (const item of items) {
@@ -107,8 +119,9 @@ async function decryptFolders(folders: EncryptedFolder[], key: CryptoKey) {
   const result: FolderDecrypted[] = [];
   for (const folder of folders) {
     try {
-      const name = await decryptJson<string>(folder.nameCipher, key);
-      result.push({ id: folder.id, name });
+      const name = await decryptJson<unknown>(folder.nameCipher, key);
+      const label = typeof name === "string" ? name.trim() : "";
+      result.push({ id: folder.id, name: label || "Carpeta" });
     } catch {
       result.push({ id: folder.id, name: "Carpeta" });
     }
@@ -150,9 +163,9 @@ export function VaultProvider({
       decryptItems(trashRes.items, key),
       decryptFolders(folderRes.folders, key),
     ]);
-    setItems(nextItems);
-    setTrashItems(nextTrash);
-    setFolders(nextFolders);
+    setItems(uniqueById(nextItems));
+    setTrashItems(uniqueById(nextTrash));
+    setFolders(uniqueById(nextFolders));
   }, []);
 
   const lock = useCallback(() => {
@@ -233,7 +246,7 @@ export function VaultProvider({
         }),
       });
       const [decrypted] = await decryptItems([res.item], key);
-      if (decrypted) setItems((prev) => [decrypted, ...prev]);
+      if (decrypted) setItems((prev) => uniqueById([decrypted, ...prev]));
       return res.item.id;
     },
     [],
@@ -262,9 +275,19 @@ export function VaultProvider({
         }),
       });
       const [decrypted] = await decryptItems([res.item], key);
-      if (decrypted) {
-        setItems((prev) => prev.map((item) => (item.id === id ? decrypted : item)));
-      }
+      setItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== id) return item;
+          if (decrypted) return decrypted;
+          return {
+            ...item,
+            folderId: input.folderId !== undefined ? input.folderId : item.folderId,
+            favorite: input.favorite ?? item.favorite,
+            type: input.type ?? item.type,
+            data: input.data ?? item.data,
+          };
+        }),
+      );
     },
     [],
   );
@@ -301,6 +324,36 @@ export function VaultProvider({
     setItems((prev) => prev.filter((item) => item.id !== id));
   }, [items, trashItems]);
 
+  const trashMany = useCallback(
+    async (ids: string[]) => {
+      const unique = [...new Set(ids.filter(Boolean))];
+      if (!unique.length) return;
+      const deletedAt = new Map<string, string | null>();
+      for (const id of unique) {
+        const res = await api<{ item: EncryptedItem }>(`/api/items/${id}`, { method: "DELETE" });
+        deletedAt.set(id, res.item.deletedAt);
+      }
+      const moving = items
+        .filter((item) => deletedAt.has(item.id))
+        .map((item) => ({ ...item, deletedAt: deletedAt.get(item.id) ?? item.deletedAt }));
+      setItems((prev) => prev.filter((item) => !deletedAt.has(item.id)));
+      setTrashItems((prev) => [...moving, ...prev]);
+    },
+    [items],
+  );
+
+  const emptyTrash = useCallback(async () => {
+    const snapshot = trashItems;
+    for (const item of snapshot) {
+      if (item.type === "document") {
+        const fileKey = (item.data as DocumentData).fileKey;
+        if (fileKey) await deleteVaultFile(fileKey).catch(() => undefined);
+      }
+      await api(`/api/items/${item.id}?permanent=1`, { method: "DELETE" });
+    }
+    setTrashItems([]);
+  }, [trashItems]);
+
   const touchItem = useCallback(async (id: string) => {
     const key = keyRef.current;
     if (!key) return;
@@ -323,7 +376,9 @@ export function VaultProvider({
       body: JSON.stringify({ nameCipher }),
     });
     const [folder] = await decryptFolders([res.folder], key);
-    if (folder) setFolders((prev) => [...prev, folder]);
+    if (!folder) throw new Error("No se pudo crear la carpeta");
+    setFolders((prev) => (prev.some((entry) => entry.id === folder.id) ? prev : [...prev, folder]));
+    return folder;
   }, []);
 
   const deleteFolder = useCallback(async (id: string) => {
@@ -333,6 +388,12 @@ export function VaultProvider({
       prev.map((item) => (item.folderId === id ? { ...item, folderId: null } : item)),
     );
   }, []);
+
+  const refreshVault = useCallback(async () => {
+    const key = keyRef.current;
+    if (!key) return;
+    await loadVault(key);
+  }, [loadVault]);
 
   useEffect(() => {
     if (memoryKey) void unlockWithKey(memoryKey);
@@ -384,11 +445,14 @@ export function VaultProvider({
       createItem,
       updateItem,
       trashItem,
+      trashMany,
       restoreItem,
       destroyItem,
+      emptyTrash,
       touchItem,
       createFolder,
       deleteFolder,
+      refreshVault,
     }),
     [
       email,
@@ -409,11 +473,14 @@ export function VaultProvider({
       createItem,
       updateItem,
       trashItem,
+      trashMany,
       restoreItem,
       destroyItem,
+      emptyTrash,
       touchItem,
       createFolder,
       deleteFolder,
+      refreshVault,
     ],
   );
 

@@ -20,7 +20,7 @@ export const FREE_PLAN: PlanStatus = {
   plan: "free",
   label: "Plan gratuito",
   premium: false,
-  trialDays: 14,
+  trialDays: 30,
   trialEndsAt: null,
   planExpiresAt: null,
   canStartTrial: true,
