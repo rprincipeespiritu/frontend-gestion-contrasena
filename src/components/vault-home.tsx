@@ -34,10 +34,12 @@ export function VaultHome() {
   const typeParam = params.get("type") ?? "login";
   const newType = isItemType(typeParam) ? typeParam : "login";
   const creating = modeParam === "new";
-  const { items, folders, search, touchItem } = useVault();
+  const { items, folders, search, touchItem, trashMany } = useVault();
   const [tab, setTab] = useState<"all" | ItemType>("all");
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
   const [hideBanners, setHideBanners] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("vault_hide_banners") === "1";
@@ -56,6 +58,8 @@ export function VaultHome() {
   const panelOpen = creating || Boolean(selected);
   const panelMode = creating ? "new" : editing && selected ? "edit" : "view";
   const folderName = folders.find((folder) => folder.id === folderId)?.name;
+  const allVisibleSelected = visible.length > 0 && visible.every((item) => selectedIds.has(item.id));
+  const selectedCount = selectedIds.size;
 
   const replaceQuery = useCallback(
     (next: { item?: string | null; mode?: string | null; type?: string | null }) => {
@@ -84,12 +88,70 @@ export function VaultHome() {
     replaceQuery({ item: null, mode: null, type: null });
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const item of visible) next.delete(item.id);
+        return next;
+      });
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const item of visible) next.add(item.id);
+      return next;
+    });
+  }
+
+  async function deleteSelected() {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    if (
+      !confirm(
+        `¿Mover ${ids.length} elemento${ids.length === 1 ? "" : "s"} a la papelera?`,
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await trashMany(ids);
+      setSelectedIds(new Set());
+      if (selectedId && ids.includes(selectedId)) closePanel();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="flex min-h-full">
       <div className="min-w-0 flex-1 p-6">
         <div className="mb-5 flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold">{folderName || "Bóveda"}</h1>
-          <div className="relative">
+          <div className="flex items-center gap-2">
+            {selectedCount > 0 ? (
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void deleteSelected()}
+                className="rounded-lg border border-[var(--danger)] px-4 py-2 text-sm font-medium text-[var(--danger)] disabled:opacity-60"
+              >
+                {deleting
+                  ? "Eliminando…"
+                  : `Eliminar ${selectedCount} seleccionado${selectedCount === 1 ? "" : "s"}`}
+              </button>
+            ) : null}
+            <div className="relative">
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
@@ -113,8 +175,16 @@ export function VaultHome() {
                     {entry.label}
                   </button>
                 ))}
+                <Link
+                  href="/tools/import"
+                  className="mt-1 block w-full rounded-lg border-t border-[var(--border)] px-3 py-2 text-left hover:bg-[var(--surface-2)]"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Importar archivo
+                </Link>
               </div>
             ) : null}
+          </div>
           </div>
         </div>
 
@@ -157,13 +227,32 @@ export function VaultHome() {
 
         {visible.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] py-16 text-center text-sm text-[var(--muted)]">
-            No hay elementos en esta vista.
+            {folderId ? (
+              <>
+                Esta carpeta no tiene elementos. Si ya estaban en la bóveda, vuelve a{" "}
+                <Link href="/tools/import" className="text-[var(--accent)] underline">
+                  Importar
+                </Link>{" "}
+                el mismo archivo para asignarlos.
+              </>
+            ) : (
+              "No hay elementos en esta vista."
+            )}
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
             <table className="w-full text-left text-sm">
               <thead className="bg-[var(--surface-2)] text-xs uppercase tracking-wide text-[var(--muted)]">
                 <tr>
+                  <th className="w-10 px-3 py-3 font-medium">
+                    <input
+                      type="checkbox"
+                      className="accent-[var(--accent)]"
+                      checked={allVisibleSelected}
+                      onChange={toggleSelectAll}
+                      aria-label="Seleccionar todos"
+                    />
+                  </th>
                   <th className="px-4 py-3 font-medium">Título</th>
                   <th className="hidden px-4 py-3 font-medium md:table-cell">Último uso</th>
                   {panelOpen ? null : (
@@ -174,16 +263,28 @@ export function VaultHome() {
               <tbody>
                 {visible.map((item) => {
                   const active = item.id === selectedId;
+                  const checked = selectedIds.has(item.id);
                   return (
                     <tr
                       key={item.id}
                       className={`cursor-pointer border-t border-[var(--border)] ${
                         active
                           ? "border-l-2 border-l-[var(--accent)] bg-[var(--surface-2)]"
-                          : "border-l-2 border-l-transparent hover:bg-[var(--surface-2)]"
+                          : checked
+                            ? "border-l-2 border-l-[var(--accent)]/40 bg-[var(--accent)]/5"
+                            : "border-l-2 border-l-transparent hover:bg-[var(--surface-2)]"
                       }`}
                       onClick={() => openItem(item.id)}
                     >
+                      <td className="w-10 px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="accent-[var(--accent)]"
+                          checked={checked}
+                          onChange={() => toggleSelect(item.id)}
+                          aria-label={`Seleccionar ${itemTitle(item)}`}
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <div className="font-medium">
                           {item.favorite ? "★ " : ""}
