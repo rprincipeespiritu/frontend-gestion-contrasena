@@ -6,6 +6,7 @@ import { Suspense, useState } from "react";
 import { api } from "@/lib/api";
 import { prepareRegister } from "@/lib/crypto";
 import { rememberVaultKey } from "@/components/vault-provider";
+import { TRIAL_DAYS } from "@/lib/plan";
 
 const field =
   "mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]";
@@ -113,7 +114,7 @@ function RegisterForm() {
           className="mt-0.5 accent-[var(--accent)]"
         />
         <span>
-          <span className="font-medium">Activar plan de prueba 30 días</span>
+          <span className="font-medium">Activar plan de prueba {TRIAL_DAYS} días</span>
           <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">
             Desbloquea Premium al crear la cuenta. Luego puedes suscribirte o seguir con el plan
             gratuito. Solo una vez por cuenta.

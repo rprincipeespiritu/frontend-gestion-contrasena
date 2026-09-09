@@ -6,6 +6,7 @@ import { LockGate } from "@/components/lock-gate";
 import { useVault } from "@/components/vault-provider";
 import { api } from "@/lib/api";
 import { getLockMinutes, setLockMinutes } from "@/lib/autolock";
+import { TRIAL_DAYS } from "@/lib/plan";
 import {
   authHashFromMaterial,
   deriveMasterMaterial,
@@ -75,7 +76,7 @@ function SettingsInner() {
       <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
         <h2 className="font-semibold">Plan y suscripción</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Activa la prueba de 30 días o pasa a Premium.
+          Activa la prueba de {TRIAL_DAYS} días o pasa a Premium.
         </p>
         <Link
           href="/plan"
