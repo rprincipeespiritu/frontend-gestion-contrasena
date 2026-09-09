@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getToken } from "@/lib/api";
+import { TRIAL_DAYS } from "@/lib/plan";
 
 const FEATURES = [
   {
@@ -63,7 +64,7 @@ export function LandingPage() {
                   href="/register?trial=1"
                   className="rounded-lg bg-[var(--accent)] px-4 py-2 font-semibold text-white"
                 >
-                  Probar 30 días
+                  Probar {TRIAL_DAYS} días
                 </Link>
               </>
             )}
@@ -80,7 +81,7 @@ export function LandingPage() {
             </h1>
             <p className="mt-4 max-w-xl text-base leading-7 text-[var(--muted)]">
               CifraLock guarda contraseñas, notas y documentos con cifrado AES-256 en el navegador.
-              Crea una cuenta, activa 30 días de Premium y deja de usar el mismo correo en cada registro.
+              Crea una cuenta, activa {TRIAL_DAYS} días de Premium y deja de usar el mismo correo en cada registro.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               {signedIn ? (
@@ -113,7 +114,7 @@ export function LandingPage() {
             </p>
             <ul className="mt-5 space-y-2 text-sm">
               <li className="flex gap-2"><span className="text-[var(--accent)]">●</span> Contraseña maestra solo en tu dispositivo</li>
-              <li className="flex gap-2"><span className="text-[var(--accent)]">●</span> 30 días de Premium al crear la cuenta</li>
+              <li className="flex gap-2"><span className="text-[var(--accent)]">●</span> {TRIAL_DAYS} días de Premium al crear la cuenta</li>
               <li className="flex gap-2"><span className="text-[var(--accent)]">●</span> Pasa a suscripción cuando quieras</li>
             </ul>
           </div>
@@ -134,7 +135,7 @@ export function LandingPage() {
           <div className="max-w-2xl">
             <h2 className="text-3xl font-semibold">Elige cómo empiezas</h2>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-              El plan gratuito cubre lo esencial. La prueba desbloquea Premium 30 días. Luego puedes suscribirte.
+              El plan gratuito cubre lo esencial. La prueba desbloquea Premium {TRIAL_DAYS} días. Luego puedes suscribirte.
             </p>
           </div>
           <div className="mt-8 grid gap-4 lg:grid-cols-3">
@@ -147,7 +148,7 @@ export function LandingPage() {
             />
             <PlanCard
               name="Prueba"
-              price="30 días"
+              price={`${TRIAL_DAYS} días`}
               highlight
               points={["Todo lo de Premium", "Máscaras ilimitadas (hasta 100)", "Bóveda sin el tope de 50 elementos"]}
               href={signedIn ? "/plan" : "/register?trial=1"}

@@ -1,5 +1,8 @@
 export type PlanId = "free" | "trial" | "premium";
 
+/** Duración del plan de prueba. Debe coincidir con TRIAL_DAYS del backend. */
+export const TRIAL_DAYS = 30;
+
 export type PlanStatus = {
   plan: PlanId;
   label: string;
@@ -20,7 +23,7 @@ export const FREE_PLAN: PlanStatus = {
   plan: "free",
   label: "Plan gratuito",
   premium: false,
-  trialDays: 30,
+  trialDays: TRIAL_DAYS,
   trialEndsAt: null,
   planExpiresAt: null,
   canStartTrial: true,
