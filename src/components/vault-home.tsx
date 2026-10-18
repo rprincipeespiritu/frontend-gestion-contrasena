@@ -14,16 +14,19 @@ import {
   type ItemType,
 } from "@/lib/types";
 import { relativeTime } from "@/lib/time";
+import { UiIcon, type IconName } from "@/components/ui-icon";
 
-const TABS: { id: "all" | ItemType; label: string }[] = [
-  { id: "all", label: "Todos" },
-  { id: "login", label: "Contraseñas" },
-  { id: "passkey", label: "Passkeys" },
-  { id: "note", label: "Notas seguras" },
-  { id: "card", label: "Tarjetas" },
-  { id: "contact", label: "Contactos" },
-  { id: "document", label: "Documentos" },
+const TABS: { id: "all" | ItemType; label: string; icon: IconName }[] = [
+  { id: "all", label: "Todos", icon: "grid" },
+  { id: "login", label: "Contraseñas", icon: "key" },
+  { id: "passkey", label: "Passkeys", icon: "passkey" },
+  { id: "note", label: "Notas seguras", icon: "note" },
+  { id: "card", label: "Tarjetas", icon: "card" },
+  { id: "contact", label: "Contactos", icon: "contact" },
+  { id: "document", label: "Documentos", icon: "document" },
 ];
+
+const TYPE_ICON: Record<ItemType, IconName> = { login: "key", passkey: "passkey", note: "note", card: "card", contact: "contact", document: "document" };
 
 export function VaultHome() {
   const router = useRouter();
@@ -134,45 +137,54 @@ export function VaultHome() {
   }
 
   return (
-    <div className="flex min-h-full">
-      <div className="min-w-0 flex-1 p-6">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">{folderName || "Bóveda"}</h1>
-          <div className="flex items-center gap-2">
+    <div className={`vault-layout flex min-h-full ${panelOpen ? "has-panel" : ""}`}>
+      <div className="vault-content min-w-0 flex-1 p-4 md:p-7">
+        <div className="vault-heading mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--accent)]">Tu espacio seguro</p>
+            <h1 className="text-3xl font-bold tracking-tight">{folderName || "Bóveda"}</h1>
+            <p className="mt-1.5 text-sm text-[var(--muted)]">Tus contraseñas y datos, siempre a mano.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {selectedCount > 0 ? (
               <button
                 type="button"
                 disabled={deleting}
                 onClick={() => void deleteSelected()}
-                className="rounded-lg border border-[var(--danger)] px-4 py-2 text-sm font-medium text-[var(--danger)] disabled:opacity-60"
+                className="ui-button ui-button-danger"
               >
+                <UiIcon name="trash" size={16} />
                 {deleting
                   ? "Eliminando…"
                   : `Eliminar ${selectedCount} seleccionado${selectedCount === 1 ? "" : "s"}`}
               </button>
             ) : null}
+            <Link href="/tools/generator" className="ui-button ui-button-secondary vault-generate"><UiIcon name="generator" size={17} />Generar contraseña</Link>
             <div className="relative">
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
+              aria-expanded={menuOpen}
+              aria-controls="add-item-options"
+              onKeyDown={(e) => { if (e.key === "Escape") setMenuOpen(false); }}
+              className="ui-button ui-button-primary"
             >
-              Añadir elemento
+              <UiIcon name="plus" size={18} />Añadir elemento<UiIcon name="down" size={14} />
             </button>
             {menuOpen ? (
-              <div className="absolute right-0 z-10 mt-2 w-48 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 text-sm shadow-lg">
+              <div id="add-item-options" onKeyDown={(e) => { if (e.key === "Escape") setMenuOpen(false); }} className="absolute right-0 z-10 mt-2 w-56 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 text-sm shadow-lg">
                 {TABS.filter((entry) => entry.id !== "all").map((entry) => (
                   <button
                     key={entry.id}
                     type="button"
-                    className="block w-full rounded-lg px-3 py-2 text-left hover:bg-[var(--surface-2)]"
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-[var(--surface-2)]"
                     onClick={() => {
                       setMenuOpen(false);
                       setEditing(false);
                       replaceQuery({ item: null, mode: "new", type: entry.id });
                     }}
                   >
-                    {entry.label}
+                    <UiIcon name={entry.icon} size={17} className="text-[var(--accent)]" />{entry.label}
                   </button>
                 ))}
                 <Link
@@ -188,46 +200,43 @@ export function VaultHome() {
           </div>
         </div>
 
-        <div className="mb-5 flex flex-wrap gap-2">
+        <div aria-label="Filtrar por tipo" className="category-filters mb-6 flex flex-wrap gap-2">
           {TABS.map((entry) => (
             <button
               key={entry.id}
               type="button"
               onClick={() => setTab(entry.id)}
-              className={`rounded-full px-3 py-1.5 text-sm ${
-                tab === entry.id
-                  ? "bg-[var(--accent)] text-white"
-                  : "bg-[var(--surface)] text-[var(--muted)] ring-1 ring-[var(--border)]"
-              }`}
+              aria-pressed={tab === entry.id}
+              className={`category-filter ${tab === entry.id ? "is-active" : ""}`}
             >
-              {entry.label}
+              <UiIcon name={entry.icon} size={16} />{entry.label}
             </button>
           ))}
         </div>
 
         {hideBanners || panelOpen ? null : (
-          <div className="mb-5 grid gap-3 md:grid-cols-3">
-            <Banner href="/settings" title="Código de recuperación" text="Guarda un código para no perder la bóveda." />
-            <Banner href="/settings" title="Ajustar autobloqueo" text="Elige en cuántos minutos se bloquea la app." />
-            <button
-              type="button"
-              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left"
-              onClick={() => {
-                localStorage.setItem("vault_hide_banners", "1");
-                setHideBanners(true);
-              }}
-            >
-              <div className="text-sm font-semibold">Desbloqueo biométrico</div>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                En esta versión el desbloqueo es con la contraseña maestra.
-              </p>
-            </button>
+          <div className="mb-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-xs font-semibold text-[var(--muted)]">Un poco más de tranquilidad</h2>
+              <button type="button" className="text-xs font-medium text-[var(--muted)] hover:text-[var(--accent)]" onClick={() => { localStorage.setItem("vault_hide_banners", "1"); setHideBanners(true); }}>Ocultar consejos</button>
+            </div>
+            <div className="advice-grid grid gap-3 lg:grid-cols-3">
+              <Banner href="/settings" icon="shield" tone="blue" title="Tu acceso, a salvo" text="Guarda tu código de recuperación y conserva el acceso a tu bóveda." action="Configurar recuperación" />
+              <Banner href="/settings" icon="clock" tone="violet" title="Una pausa segura" text="Elige cuándo se bloquea la app automáticamente." action="Ajustar autobloqueo" />
+              <Banner href="/tools/health" icon="key" tone="teal" title="Contraseñas más fuertes" text="Revisa la fortaleza de tus claves y detecta las que se repiten." action="Revisar contraseñas" />
+            </div>
           </div>
         )}
 
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold">{tab === "all" ? "Todos los elementos" : TABS.find((entry) => entry.id === tab)?.label}<span className="ml-2 rounded-md bg-[var(--surface-2)] px-2 py-0.5 text-xs text-[var(--muted)]">{visible.length}</span></h2>
+          {hideBanners && !panelOpen ? <button type="button" className="text-xs font-medium text-[var(--accent)]" onClick={() => { localStorage.removeItem("vault_hide_banners"); setHideBanners(false); }}>Mostrar consejos</button> : null}
+        </div>
         {visible.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface)] py-16 text-center text-sm text-[var(--muted)]">
-            {folderId ? (
+          <div className="vault-empty rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] px-6 py-12 text-center text-sm text-[var(--muted)]">
+            <span className="empty-icon"><UiIcon name={search ? "search" : "vault"} size={28} /></span>
+            <h3 className="mb-2 text-lg font-semibold text-[var(--foreground)]">{search ? "No encontramos coincidencias" : "Un lugar seguro para tus datos"}</h3>
+            <p className="mx-auto max-w-sm">{search ? "Prueba con otro nombre o cambia los filtros de búsqueda." : folderId ? (
               <>
                 Esta carpeta no tiene elementos. Si ya estaban en la bóveda, vuelve a{" "}
                 <Link href="/tools/import" className="text-[var(--accent)] underline">
@@ -236,12 +245,13 @@ export function VaultHome() {
                 el mismo archivo para asignarlos.
               </>
             ) : (
-              "No hay elementos en esta vista."
-            )}
+              "Añade un elemento para empezar a organizar tu bóveda."
+            )}</p>
+            {!search ? <button type="button" className="ui-button ui-button-primary mt-5" onClick={() => { setEditing(false); replaceQuery({ item: null, mode: "new", type: tab === "all" ? "login" : tab }); }}><UiIcon name="plus" size={17} />Añadir elemento</button> : null}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-            <table className="w-full text-left text-sm">
+          <div className="vault-table overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+            <table className="w-full table-fixed text-left text-sm">
               <thead className="bg-[var(--surface-2)] text-xs uppercase tracking-wide text-[var(--muted)]">
                 <tr>
                   <th className="w-10 px-3 py-3 font-medium">
@@ -254,10 +264,11 @@ export function VaultHome() {
                     />
                   </th>
                   <th className="px-4 py-3 font-medium">Título</th>
-                  <th className="hidden px-4 py-3 font-medium md:table-cell">Último uso</th>
+                  <th className="last-used-column hidden w-32 px-4 py-3 font-medium xl:table-cell">Último uso</th>
                   {panelOpen ? null : (
-                    <th className="hidden px-4 py-3 font-medium md:table-cell">Carpeta</th>
+                    <th className="hidden w-40 px-4 py-3 font-medium lg:table-cell">Carpeta</th>
                   )}
+                  <th className="w-12"><span className="sr-only">Abrir</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -286,22 +297,26 @@ export function VaultHome() {
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <div className="font-medium">
-                          {item.favorite ? "★ " : ""}
-                          {itemTitle(item)}
-                        </div>
-                        <div className="text-xs text-[var(--muted)]">
-                          {TYPE_LABEL[item.type]} · {itemSubtitle(item)}
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={`item-type-icon type-${item.type}`}><UiIcon name={TYPE_ICON[item.type]} size={20} /></span>
+                          <div className="min-w-0">
+                            <button type="button" className="flex max-w-full items-center gap-1.5 text-left font-semibold hover:text-[var(--accent)]" onClick={(e) => { e.stopPropagation(); openItem(item.id); }}>
+                              <span className="truncate">{itemTitle(item)}</span>
+                              {item.favorite ? <UiIcon name="star" size={14} className="shrink-0 fill-amber-400 text-amber-600" aria-label="Favorito" aria-hidden={false} role="img" /> : null}
+                            </button>
+                            <div className="mt-0.5 truncate text-xs text-[var(--muted)]">{TYPE_LABEL[item.type]} · {itemSubtitle(item)}</div>
+                          </div>
                         </div>
                       </td>
-                      <td className="hidden px-4 py-3 text-[var(--muted)] md:table-cell">
+                      <td className="last-used-column hidden px-4 py-3 text-xs text-[var(--muted)] xl:table-cell">
                         {relativeTime(item.lastUsedAt)}
                       </td>
                       {panelOpen ? null : (
-                        <td className="hidden px-4 py-3 text-[var(--muted)] md:table-cell">
-                          {folders.find((folder) => folder.id === item.folderId)?.name || "—"}
+                        <td className="hidden px-4 py-3 text-[var(--muted)] lg:table-cell">
+                          {item.folderId ? <span className="folder-badge"><UiIcon name="folder" size={13} /><span className="truncate">{folders.find((folder) => folder.id === item.folderId)?.name || "—"}</span></span> : <span className="text-xs">Sin carpeta</span>}
                         </td>
                       )}
+                      <td className="pr-3"><button type="button" className="row-open" aria-label={`Abrir ${itemTitle(item)}`} onClick={(e) => { e.stopPropagation(); openItem(item.id); }}><UiIcon name="chevron" size={17} /></button></td>
                     </tr>
                   );
                 })}
@@ -316,7 +331,7 @@ export function VaultHome() {
           <button
             type="button"
             aria-label="Cerrar panel"
-            className="fixed inset-0 z-20 bg-black/20 md:hidden"
+            className="fixed inset-0 z-20 bg-black/20 lg:hidden"
             onClick={closePanel}
           />
           <ItemDetailPanel
@@ -338,11 +353,12 @@ export function VaultHome() {
   );
 }
 
-function Banner({ href, title, text }: { href: string; title: string; text: string }) {
+function Banner({ href, title, text, icon, tone, action }: { href: string; title: string; text: string; icon: IconName; tone: "blue" | "violet" | "teal"; action: string }) {
   return (
-    <Link href={href} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-      <div className="text-sm font-semibold">{title}</div>
-      <p className="mt-1 text-xs text-[var(--muted)]">{text}</p>
-    </Link>
+    <article className={`advice-card advice-${tone}`}>
+      <div className="mb-3 flex items-center gap-3"><span className="advice-icon"><UiIcon name={icon} size={20} /></span><h3 className="text-sm font-semibold">{title}</h3></div>
+      <p className="flex-1 text-xs leading-relaxed text-[var(--muted)]">{text}</p>
+      <Link href={href} className="advice-action">{action}<UiIcon name="arrow" size={15} /></Link>
+    </article>
   );
 }
