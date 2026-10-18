@@ -46,7 +46,7 @@ export function ItemDetailPanel({
   }, [onClose]);
 
   return (
-    <aside className="z-30 flex min-h-0 flex-col border-[var(--border)] bg-[var(--surface)] max-md:fixed max-md:inset-0 max-md:border-0 md:sticky md:top-0 md:h-[calc(100dvh-4.25rem)] md:w-[26rem] md:shrink-0 md:border-l">
+    <aside className="z-30 flex min-h-0 flex-col border-[var(--border)] bg-[var(--surface)] max-lg:fixed max-lg:inset-0 max-lg:border-0 lg:sticky lg:top-0 lg:h-[calc(100dvh-4.5rem)] lg:w-[26rem] lg:shrink-0 lg:border-l">
       <div className="min-h-0 flex-1 overflow-auto p-5">
         {mode !== "view" ? (
           <div className="mb-3 flex justify-end">
